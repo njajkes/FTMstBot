@@ -37,7 +37,11 @@ const inputTree = initInputTree();
 
 inputTree.getValidInput = async (availableInputs, msg) =>
 {
-	for(let input of availableInputs) {
+	if (!availableInputs) {
+		mstBot.sendMessage(msg.chat.id, "Whoops!")
+		return undefined;
+	}
+	for (let input of availableInputs) {
 		if (await input.condition(msg)) {
 			return input;
 		}
@@ -53,7 +57,11 @@ mstBot.on("message", async msg => {
 	const validInput = await inputTree.getValidInput(availableInputs, msg);
 
 	if (!validInput) {
+		if (validInput == undefined) {
+			mstBot.sendMessage(msg.from.id, "Что-то пошло не так!")
+		} else {
 		mstBot.sendMessage(msg.from.id, "Пожалуйста введите одно из: " + availableInputs.map(i => i.name).join(", "));
+		}
 	} else {
 		if (await validInput.action(msg, mstBot)) {
 			session.lastCmd = validInput.id;

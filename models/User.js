@@ -1,12 +1,16 @@
-const {Schema, model} = require('mongoose')
-const Partners = require('./Partners')
-const Courses = require('./Course')
+const {Schema, model, SchemaTypes} = require('mongoose')
 
 const userSceme = Schema({
   uid: Number,
   role: String,
   username: String,
   partners: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: 'partners'
+    }
+  ],
+  adminingPartners: [
     {
       type: Schema.Types.ObjectId,
       ref: 'partners'

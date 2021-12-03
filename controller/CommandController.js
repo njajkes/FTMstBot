@@ -5,6 +5,7 @@ const Course = require('../models/Course')
 const Input = require('../models/Command')
 const { findUserByUid } = require('../controller/UserController')
 const { partnerButtons, courseButtons } = require('../utils')
+const { emit } = require('../models/Course')
 
 const start = new Input(
 	"/start",
@@ -12,19 +13,15 @@ const start = new Input(
 	msg => msg.text === "/start",
 	async (msg, bot) => {
 		let user = await findUserByUid(msg.from.id);
-
 		if(!user)
 		{
-			user = new User({ uid: msg.from.id, role: "slave" });
+			user = new User({ uid: msg.from.id, role: "slave", username: msg.from.username });
 			user.save();
 		}
 
 		bot.sendMessage(msg.chat.id, `Здравствуйте, ${user.role} @${msg.from.username}`);
 
-		const partners = isAdmin(user) ? await getPartners : await Partner.find();
-		const buttons = await partnerButtons(msg, partners);
-
-		bot.sendMessage(msg.from.id, "Выберите компанию:\n" + partners.map(p => "      " + p.companyName).join("\n"), buttons);
+		await showAllPartners(msg, bot)
 
 		return true;
 	}
@@ -41,6 +38,7 @@ const selectPartner = new Input(
 		if(!partner)
 		{
 			bot.sendMessage(msg.from.id, "Компания не найдена!");
+      showAllPartners(msg, bot)
 			return false;
 		}
 
@@ -75,16 +73,19 @@ const selectCourse = new Input(
 
 function isSlave(user)
 {
+  if (!user) return false
 	return user.role === "slave";
 }
 
 function isAdmin(user)
 {
+  if (!user) return false
 	return user.role === "admin";
 }
 
 function isMaster(user)
 {
+  if (!user) return false
 	return user.role === "master";
 }
 
@@ -93,18 +94,27 @@ function getUser(msg)
 	return User.findOne({ uid: msg.from.id });
 }
 
-function getPartners(user)
+async function getPartners(user)
 {
-	const partnerPromises = user.partners.map(async pId => Partner.findOne(pId));
+	const partnerPromises = await user.partners.map(async pId => await Partner.findOne(pId));
 	return Promise.all(partnerPromises);
 }
 
-function getCourses(partner)
+async function getCourses(partner)
 {
-	const coursePromises = partner.coursesList.map(async cId => Course.findOne(cId));
+	const coursePromises = await partner.coursesList.map(async cId => await Course.findOne(cId));
 	return Promise.all(coursePromises);
 }
 
+
+async function showAllPartners(msg, bot) {
+  const user = await findUserByUid(msg.from.id)
+  console.log(await getPartners)
+  const partners = isAdmin(user) ? await getPartners : await Partner.find();
+  const buttons = await partnerButtons(msg, partners);
+
+  bot.sendMessage(msg.from.id, "Выберите компанию:\n" + partners.map(p => "      " + p.companyName).join("\n"), buttons);
+}
 
 module.exports = {
   start,
