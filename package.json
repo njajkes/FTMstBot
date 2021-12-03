@@ -1,0 +1,19 @@
+{
+  "name": "mstunkatonbot",
+  "version": "1.0.0",
+  "description": "Работа группы TeamFrezer к хакатону Moscow Secure Traffic",
+  "main": "index.js",
+  "scripts": {
+    "test": "nodemon index.js"
+  },
+  "author": "TeamFrezer",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "mongoose": "^6.0.14",
+    "node-telegram-bot-api": "^0.54.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.15"
+  }
+}
