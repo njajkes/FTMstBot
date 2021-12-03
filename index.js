@@ -79,7 +79,7 @@ mstBot.onText(startRegexp, async msg => {
 
 mstBot.onText(/\/partner (.+)/, async (msg, match) =>
 {
-	let user = await User.findOne({ uid: msg.from.id });
+	let user = await Users.findOne({ uid: msg.from.id });
 
 	if(!user)
 	{
@@ -88,7 +88,7 @@ mstBot.onText(/\/partner (.+)/, async (msg, match) =>
 	}
 
 	let partnerName = match[1];
-	let partner = await Partner.findOne({ companyName: partnerName });
+	let partner = await Partners.findOne({ companyName: partnerName });
 
 	if(!partner)
 	{
