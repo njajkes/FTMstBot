@@ -8,7 +8,7 @@ const courseScheme = Schema({
     ref: 'partners',
     required: true
   },
-  cousreName: {
+  courseName: {
     type: String,
     required: true
   },
