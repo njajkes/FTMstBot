@@ -1,9 +1,8 @@
 const Partner = require('./models/Partners')
 const Course = require('./models/Course')
 
-const partnerButtons = async msg =>
+const partnerButtons = async (msg, partners) =>
 {
-	const partners = await Partner.find();
 	const partnerCmds = partners.map(p => [ p.companyName ]);
 	
 	return {
@@ -12,16 +11,9 @@ const partnerButtons = async msg =>
 	};
 }
 
-const courseButtons = async (msg, partner) =>
+const courseButtons = async (msg, courses) =>
 {
-	const coursePromises = partner.coursesList.map(async cId =>
-	{
-		const course = await Course.findOne(cId);
-		return course.courseName;
-	});
-
-	let courseCmds = await Promise.all(coursePromises);
-	courseCmds = courseCmds.map(c => [ c ]);
+	const courseCmds = courses.map(c => [ c.courseName ]);
 
 	return {
 		reply_to_message_id: msg.message_id,

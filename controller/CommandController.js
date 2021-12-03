@@ -20,7 +20,11 @@ const start = new Input(
 		}
 
 		bot.sendMessage(msg.chat.id, `Здравствуйте, ${user.role} @${msg.from.username}`);
-		bot.sendMessage(msg.chat.id, "Выберите компанию", await partnerButtons(msg));
+
+		const partners = isAdmin(user) ? await getPartners : await Partner.find();
+		const buttons = await partnerButtons(msg, partners);
+
+		bot.sendMessage(msg.from.id, "Выберите компанию:\n" + partners.map(p => "      " + p.companyName).join("\n"), buttons);
 
 		return true;
 	}
@@ -28,7 +32,7 @@ const start = new Input(
 
 const selectPartner = new Input(
 	"selectPartner",
-	"Название компании",
+	"название компании",
 	msg => true,
 	async (msg, bot) => {
 		const user = await findUserByUid(msg.from.id);
@@ -40,13 +44,9 @@ const selectPartner = new Input(
 			return false;
 		}
 
-		if(!user.partners.includes(partner))
-		{
-			user.partners.push(partner);
-			user.save();
-		}
+		const courses = await getCourses(partner);
 
-		bot.sendMessage(msg.chat.id, "Выберите курс", await courseButtons(msg, partner));
+		bot.sendMessage(msg.chat.id, "Выберите курс:\n" + courses.map(c => "      " + c.courseName).join("\n"), await courseButtons(msg, courses));
 
 		return true;
   }
@@ -54,8 +54,12 @@ const selectPartner = new Input(
 
 const selectCourse = new Input(
 	"selectCourse",
-	"Название курса",
-	msg => true,
+	"название курса",
+	async msg =>
+	{
+		const user = await findUserByUid(msg.from.id);
+		return isSlave(user);
+	},
 	async (msg, bot) => {
 		const course = await Course.findOne({ courseName: msg.text });
 
@@ -68,6 +72,38 @@ const selectCourse = new Input(
 		bot.sendMessage(msg.from.id, "курс: " + msg.text);
 		return true;
 	});
+
+function isSlave(user)
+{
+	return user.role === "slave";
+}
+
+function isAdmin(user)
+{
+	return user.role === "admin";
+}
+
+function isMaster(user)
+{
+	return user.role === "master";
+}
+
+function getUser(msg)
+{
+	return User.findOne({ uid: msg.from.id });
+}
+
+function getPartners(user)
+{
+	const partnerPromises = user.partners.map(async pId => Partner.findOne(pId));
+	return Promise.all(partnerPromises);
+}
+
+function getCourses(partner)
+{
+	const coursePromises = partner.coursesList.map(async cId => Course.findOne(cId));
+	return Promise.all(coursePromises);
+}
 
 
 module.exports = {
