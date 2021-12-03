@@ -1,10 +1,9 @@
-const TFMstBot = require('node-telegram-bot-api')
-const Mongo = require('mongoose')
-const DotEnv = require('dotenv')
-const Users = require('./models/User')
-const Courses = require('./models/Course')
-const Partners = require('./models/Partners')
-const Contents = require('./models/Content')
+const TFMstBot = require('node-telegram-bot-api');
+const Mongo = require('mongoose');
+const DotEnv = require('dotenv');
+const User = require("./models/User");
+const Partner = require("./models/Partner");
+const Course = require("./models/Course");
 
 const { TOKEN, MONGOKEY } = DotEnv.config().parsed
 
@@ -16,17 +15,25 @@ const mongoStart = async (MONGOKEY) => {
   } catch (e) {
     console.log(e)
   }
-} 
-mongoStart(MONGOKEY)
+}
 
-const startRegexp = /\/start/
-const addPartnerRegexp = /\/addPartner/
-const anyRegexp = /./ 
+mongoStart(MONGOKEY);
+
+class Input
+{
+	constructor(id, name, condition, action)
+	{
+		this.id = id;
+		this.name = name;
+		this.condition = condition;
+		this.action = action;
+	}
+}
 
 const partnerButtons = async msg =>
 {
-	let partners = await Partners.find();
-	let partnerCmds = partners.map(p => [ p.companyName ]);
+	const partners = await Partner.find();
+	const partnerCmds = partners.map(p => [ p.companyName ]);
 	
 	return {
 		reply_to_message_id: msg.message_id,
@@ -34,72 +41,140 @@ const partnerButtons = async msg =>
 	};
 }
 
-mstBot.onText(addPartnerRegexp, async msg => {
-  mstBot.sendMessage(msg.chat.id, 'Введите название комании: ')
-  mstBot.onText(anyRegexp, async (msg) => {
-    try {
-      console.log(msg.text)
-      const newPartner = new Partners({
-        companyName: msg.text
-      })
-      console.log(newPartner.companyName)
-      await newPartner.save()
-      
-      console.log(`Партнёр ${newPartner.companyName} успешно добавлен`)
-      await mstBot.sendMessage(msg.chat.id, `Компания ${newPartner.companyName} успешно добавлена!`)
-      mstBot.removeTextListener(anyRegexp)
-    } catch (e) {
-      console.log(e)
-      mstBot.sendMessage(msg.chat.id, 'Что-то пошло не так :(\nПопробуйте позже!')
-    }
-  })
-  
-})
-
-mstBot.onText(startRegexp, async msg => {
-  
-  const candidate = await Users.findOne({
-    uid: msg.from.id
-  })
-  if (!candidate) {
-
-    const newUser = new Users({
-      uid: msg.from.id,
-      role: 'Slave',
-    })
-
-    newUser.save()
-
-    mstBot.sendMessage(msg.chat.id, `Здравстуйте, ${msg.from.first_name}!\nПожалуйста, введите компанию, курсы которой хотите просматривать.`, await partnerButtons(msg))
-    
-  } else {
-    mstBot.sendMessage(msg.chat.id, `Здравстуйте, ${msg.from.first_name}!\nПожалуйста, введите компанию, курсы которой хотите просматривать.`, await partnerButtons(msg))
-  }
-})
-
-mstBot.onText(/\/partner (.+)/, async (msg, match) =>
+const courseButtons = async (msg, partner) =>
 {
-	let user = await Users.findOne({ uid: msg.from.id });
-
-	if(!user)
+	const coursePromises = partner.coursesList.map(async cId =>
 	{
-		mstBot.sendMessage(msg.chat.id, "Ошибка: пользователь не добавлен!");
-		return;
-	}
+		const course = await Course.findOne(cId);
+		return course.courseName;
+	});
 
-	let partnerName = match[1];
-	let partner = await Partners.findOne({ companyName: partnerName });
+	let courseCmds = await Promise.all(coursePromises);
+	courseCmds = courseCmds.map(c => [ c ]);
 
-	if(!partner)
+	return {
+		reply_to_message_id: msg.message_id,
+		reply_markup: { keyboard: courseCmds }
+	};
+}
+
+const start = new Input(
+	"/start",
+	"/start",
+	msg => msg.text === "/start",
+	async msg => {
+		let user = await getUser(msg);
+
+		if(!user)
+		{
+			user = new User({ uid: msg.from.id, role: "slave" });
+			user.save();
+		}
+
+		mstBot.sendMessage(msg.chat.id, `Здравствуйте, ${user.role} @${msg.from.username}`);
+		mstBot.sendMessage(msg.chat.id, "Выберите компанию", await partnerButtons(msg));
+
+		return true;
+	});
+
+const selectPartner = new Input(
+	"selectPartner",
+	"Название компании",
+	msg => true,
+	async msg => {
+		const user = await getUser(msg);
+
+		const partner = await Partner.findOne({ companyName: msg.text });
+
+		if(!partner)
+		{
+			mstBot.sendMessage(msg.from.id, "Компания не найдена!");
+			return false;
+		}
+
+		if(!user.partners.includes(partner))
+		{
+			user.partners.push(partner);
+			user.save();
+		}
+
+		mstBot.sendMessage(msg.chat.id, "Выберите курс", await courseButtons(msg, partner));
+
+		return true;
+	});
+
+const selectCourse = new Input(
+	"selectCourse",
+	"Название курса",
+	msg => true,
+	async msg => {
+		const course = await Course.findOne({ courseName: msg.text });
+
+		if(!course)
+		{
+			mstBot.sendMessage(msg.from.id, "Курс не найден!");
+			return false;
+		}
+
+		mstBot.sendMessage(msg.from.id, "курс: " + msg.text);
+		return true;
+	});
+
+const sessions = new Map();
+
+const commandTree = initCommands();
+
+commandTree.getValidInput = (availableInputs, msg) =>
+{
+	for(const input of availableInputs)
 	{
-		mstBot.sendMessage(msg.chat.id, "Ошибка: компания не найдена!");
-		return;
+		if(input.condition(msg))
+		{
+			return input;
+		}
 	}
+}
 
-	user.partners.push(partner);
-	user.save();
+function initCommands()
+{
+	const map = new Map();
 	
-	let courseNames = partner.coursesList.map(c => c.courseName).join(", ");
+	map.set("", [ start ]);
+	map.set(start.id, [ selectPartner ]);
+	map.set(selectPartner.id, [ selectCourse ]);
+	
+	return map;
+}
 
-	mstBot.sendMessage(msg.chat.id, `Курсы от ${partnerName}: ${courseNames}`);
+mstBot.on("message", async msg =>
+{
+	let session = sessions.get(msg.from.id);
+
+	if(!session)
+	{
+		session = { id: msg.from.id, lastCmd: "" };
+		sessions.set(msg.from.id, session);
+	}
+
+	const lastCmd = session.lastCmd;
+
+	const availableInputs = commandTree.get(lastCmd);
+	const validInput = commandTree.getValidInput(availableInputs, msg);
+
+	if(!validInput)
+	{
+		mstBot.sendMessage(msg.from.id, "Пожалуйста введите одно из: " + availableInputs.map(i => i.name).join(", "));
+	}
+	else
+	{
+		if(await validInput.action(msg))
+		{
+			session.lastCmd = validInput.id;
+		}
+	}
 });
+
+async function getUser(msg)
+{
+	return await User.findOne({ uid: msg.from.id });
+}

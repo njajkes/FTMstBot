@@ -5,6 +5,7 @@ const Courses = require('./Course')
 const userSceme = Schema({
   uid: Number,
   role: String,
+  username: String,
   partners: [
     {
       type: Schema.Types.ObjectId,
