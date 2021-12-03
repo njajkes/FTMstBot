@@ -17,7 +17,6 @@ const mongoStart = async (MONGOKEY) => {
 mongoStart(MONGOKEY)
 
 mstBot.onText(/\/start/, async msg => {
-  console.log(msg)
   const candidate = await Users.findOne({
     uid: msg.from.id
   })
@@ -28,8 +27,8 @@ mstBot.onText(/\/start/, async msg => {
       role: 'Slave',
     })
     newUser.save()
-    mstBot.sendMessage(msg.chat.id, "Пользователь успешно создан!")
-    console.dir(newUser)
+    mstBot.sendMessage(msg.chat.id, "")
+    
   } else {
     mstBot.sendMessage(msg.chat.id, `Здравствуйте, @${msg.from.username} ${candidate.role}`)
   }
