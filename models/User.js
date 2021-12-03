@@ -1,5 +1,6 @@
 const {Schema, model} = require('mongoose')
 const Partners = require('./Partners')
+const Courses = require('./Course')
 
 const userSceme = Schema({
   uid: Number,
@@ -8,6 +9,12 @@ const userSceme = Schema({
     {
       type: Schema.Types.ObjectId,
       ref: 'partners'
+    }
+  ],
+  courseList: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: 'courses'
     }
   ],
   

@@ -1,6 +1,5 @@
 const {Schema, model} = require('mongoose')
 
-
 const contentScheme = Schema( {
   courseName: {
     type: String,
@@ -12,6 +11,8 @@ const contentScheme = Schema( {
   },
   timeout: {
     type: Number,
-    $min:
+    min: 0
   }
 } )
+
+module.exports = model('contents', contentScheme)

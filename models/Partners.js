@@ -1,6 +1,6 @@
 const {Schema, model} = require('mongoose')
-const Course = require('./course')
-const User = require('')
+const Course = require('./Course')
+const User = require('./User')
 
 const partnerScheme = new Schema({
   companyName: {
@@ -26,3 +26,5 @@ const partnerScheme = new Schema({
     }
   ]
 })
+
+module.exports = model('partners', partnerScheme)

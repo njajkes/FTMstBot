@@ -8,6 +8,10 @@ const courseScheme = Schema({
     ref: 'partners',
     required: true
   },
+  cousreName: {
+    type: String,
+    required: true
+  },
   content: [
     {
       type: Schema.Types.ObjectId,
@@ -23,3 +27,5 @@ const courseScheme = Schema({
 
 
 })
+
+module.exports = model('courses', courseScheme)
