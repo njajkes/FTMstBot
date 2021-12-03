@@ -1,6 +1,7 @@
 const TFMstBot = require('node-telegram-bot-api');
 const Mongo = require('mongoose');
 const DotEnv = require('dotenv');
+const initInputTree = require('./models/InputTree')
 const User = require("./models/User");
 const Partner = require("./models/Partners");
 const Course = require("./models/Course");
@@ -18,30 +19,19 @@ const mongoStart = async (MONGOKEY) => {
     console.log(e)
   }
 }
-
 mongoStart(MONGOKEY); 
 
 const sessions = new Map();
 
-const commandTree = initCommands();
-commandTree.getValidInput = (availableInputs, msg) =>
-{
-	for(const input of availableInputs) {
+const inputTree = initInputTree();
+inputTree.getValidInput = (availableInputs, msg) => {
+	for (let input of availableInputs) {
 		if (input.condition(msg)) {
 			return input;
 		}
 	}
 }
 
-function initCommands() {
-	const map = new Map();
-	
-	map.set("", [ StartCmd ]);
-	map.set(StartCmd.id, [ SelectPartnerInput ]);
-	map.set(SelectPartnerInput.id, [ SelectCourseInput ]);
-	
-	return map;
-}
 
 mstBot.on("message", async msg => {
 	let session = sessions.get(msg.from.id);
@@ -53,8 +43,8 @@ mstBot.on("message", async msg => {
 
 	const lastCmd = session.lastCmd;
 
-	const availableInputs = commandTree.get(lastCmd);
-	const validInput = commandTree.getValidInput(availableInputs, msg);
+	const availableInputs = inputTree.get(lastCmd);
+	const validInput = inputTree.getValidInput(availableInputs, msg);
 
 	if (!validInput) {
 		mstBot.sendMessage(msg.from.id, "Пожалуйста введите одно из: " + availableInputs.map(i => i.name).join(", "));

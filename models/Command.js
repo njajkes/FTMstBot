@@ -1,5 +1,4 @@
-module.exports = class Input
-{
+module.exports = class Input {
 	constructor(id, name, condition, action) {
 		this.id = id;
 		this.name = name;
