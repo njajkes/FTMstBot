@@ -27,72 +27,68 @@ const documentationMap = new Map()
 	documentationMap.set('/__delete__user', `\n\n/__delete__user [никнейм], где\n\n[никнейм] - никнейм пользователя без собачки (@), которого вы хотите удалить\n`)
 }
 
-const start = new Input(
-	"/start",
-	"/start",
-	msg => msg.text === "/start",
-	async (msg, bot) => {
+const menu = new Input(
+	"/menu",
+	msg => "/menu",
+	msg => msg.text === "/menu",
+	async (msg, bot, sess) => {
 		let user = await findUserByUid(msg.from.id);
 		if(!user)
 		{
 			user = new User({ uid: msg.from.id, role: "slave", username: msg.from.username });
 			await user.save();
-			bot.sendMessage(msg.chat.id, `Здравствуйте, @${msg.from.firstname}! Добро пожаловать на ...`); // TODO: дописать хуйню
 			await showAllPartners(msg, bot)
-			return true
 		}
-		bot.sendMessage(msg.chat.id, `Здравствуйте, @${msg.from.firstname}! Добро пожаловать на ...`); // TODO: дописать хуйню
+		await bot.sendMessage(msg.chat.id, `Здравствуйте, ${msg.from.first_name}! Добро пожаловать на ...`); // TODO: дописать хуйню
 		return true;
-	}
-)
+	})
 
 const deleteUser = new Input(
 	"/__delete__user",
-	"@DEV /__delete__user - удалить пользователя",
 	async msg => {
-		const candidate = await findUserByUid(msg.from.id)
-		return (msg.text.split(' ')[0] == '/__delete__user') && candidate.role == 'master'
+		const user = await findUserByUid(msg.from.id);
+		return isMaster(user) ? "@DEV /__delete__user - удалить пользователя" : undefined;
 	},
-	async (msg, bot) => {
+	msg => msg.text.split(' ')[0] == '/__delete__user',
+	async (msg, bot, sess) => {
 		const [, userQuery] = msg.text.split(' ')
 		if (!userQuery) {
-			bot.sendMessage(msg.chat.id, `Пожалуйста, введите команду согласно следующему синтаксису:${documentationMap.get("/__delete__user")}`)
+			await bot.sendMessage(msg.chat.id, `Пожалуйста, введите команду согласно следующему синтаксису:${documentationMap.get("/__delete__user")}`)
 			return false
 		}
 		const user = await findUserByUsername(userQuery)
 		if (!user) {
-			bot.sendMessage(msg.chat.id, `Пользователь ${userQuery} не найден в базе данных!`)
+			await bot.sendMessage(msg.chat.id, `Пользователь ${userQuery} не найден в базе данных!`)
 			return false
 		}
 		await user.remove()	
-		bot.sendMessage(msg.chat.id, `Удаление прошло успешно!`)
+		await bot.sendMessage(msg.chat.id, `Удаление прошло успешно!`)
 		return true
-	}
-)
+	})
 
 const changeUserRole = new Input(
 	"/__change__user__role",
-	"@DEV /__change__user__role - изменить роль пользователя",
 	async msg => {
-		const candidate = await findUserByUid(msg.from.id)
-		return (msg.text.split(' ')[0] == '/__change__user__role') && candidate.role == 'master'
+		const user = await findUserByUid(msg.from.id);
+		return isMaster(user) ? "@DEV /__change__user__role - изменить роль пользователя" : undefined;
 	},
-	async (msg, bot) => {
+	msg => msg.text.split(' ')[0] == '/__change__user__role',
+	async (msg, bot, sess) => {
 		const [ , userQuery, newRole, partnerRef] = msg.text.split(' ')
 
 		if (!userQuery || !newRole) {
-			bot.sendMessage(msg.chat.id, `Пожалуйста, введите команду согласно следующему синтаксису: ${documentationMap.get('/__change__user__role')}`)
+			await bot.sendMessage(msg.chat.id, `Пожалуйста, введите команду согласно следующему синтаксису: ${documentationMap.get('/__change__user__role')}`)
 			return false
 		}
 
 		if (!['master', 'slave', 'admin'].includes(newRole)) {
-			bot.sendMessage(msg.chat.id, `Некорректная роль: ${newRole}.\nВведите роль из следующих: master, admin, slave`)
+			await bot.sendMessage(msg.chat.id, `Некорректная роль: ${newRole}.\nВведите роль из следующих: master, admin, slave`)
 			return false
 		}
 
 		const user = await findUserByUsername(userQuery)
 		if (!user) {
-			bot.sendMessage(msg.chat.id, `Пользователь ${userQuery} не найден в базе данных!`)
+			await bot.sendMessage(msg.chat.id, `Пользователь ${userQuery} не найден в базе данных!`)
 			return false
 		}
 		
@@ -105,7 +101,7 @@ const changeUserRole = new Input(
 		if (newRole == 'admin' && partnerRef) {
 			const partner = await Partner.findOne({companyName: partnerRef})
 			if (!partner) {
-				bot.sendMessage(msg.chat.id, `Компания ${partnerRef} не найдена в базе данных`)
+				await bot.sendMessage(msg.chat.id, `Компания ${partnerRef} не найдена в базе данных`)
 			} else {
 				user.adminingPartners = partner
 				if (!user.partners.includes(partner._id)) {
@@ -116,22 +112,21 @@ const changeUserRole = new Input(
 		}
 		user.role = newRole
 		user.save()
-		bot.sendMessage(msg.chat.id, `Роль успешно изменена!\nРоль ${userQuery} - ${newRole}`)
+		await bot.sendMessage(msg.chat.id, `Роль успешно изменена!\nРоль ${userQuery} - ${newRole}`)
 		return true
-	}
-)
+	})
 
 const addNewPartner = new Input(
 	"/__add__new__partner",
-	"@DEV /__add__new__partner - добавить нового партнёра",
 	async msg => {
-		const candidate = await findUserByUid(msg.from.id)
-		return (msg.text.split(' ')[0] == '/__add__new__partner') && candidate.role == 'master'
-	}, 
-	async (msg, bot) => {
+		const user = await findUserByUid(msg.from.id);
+		return isMaster(user) ? "@DEV /__add__new__partner - добавить нового партнёра" : undefined;
+	},
+	msg => msg.text.split(' ')[0] == '/__add__new__partner',
+	async (msg, bot, sess) => {
 		[, newPartnerName] = msg.text.split(' ')
 		if (!newPartnerName) {
-			bot.sendMessage(msg.chat.id, `Пожалуйста, введите команду согласно следующему синтаксису: ${documentationMap.get('/__add__new__partner')}`)
+			await bot.sendMessage(msg.chat.id, `Пожалуйста, введите команду согласно следующему синтаксису: ${documentationMap.get('/__add__new__partner')}`)
 			return false
 		}
 		try {
@@ -139,93 +134,91 @@ const addNewPartner = new Input(
 				companyName: newPartnerName
 			})
 			await newPartner.save()
-			bot.sendMessage(msg.chat.id, 'Партнёр успешно добавлен')
+			await bot.sendMessage(msg.chat.id, 'Партнёр успешно добавлен')
 			return true
 		} catch (e) {
-			bot.sendMessage(msg.chat.id, 'Партнёр уже был создан, либо произошла иная ошибка при добавлении нового партнера в систему:\n' + e.message)
+			await bot.sendMessage(msg.chat.id, 'Партнёр уже был создан, либо произошла иная ошибка при добавлении нового партнера в систему:\n' + e.message)
 			return false
 		}
-	}
-)
+	})
 
 const subsOnPartner = new Input(
 	"/subs_on_partner",
-	"/subs_on_partner - Подписаться на курсы компании",
-	async msg => msg.text.split(' ')[0] == '/subs_on_partner' ,
-	async (msg, bot) => {
-		showAllPartners(msg, bot);
+	msg => "/subs_on_partner - Подписаться на курсы компании",
+	msg => msg.text.split(' ')[0] == '/subs_on_partner' ,
+	async (msg, bot, sess) => {
+		await showAllPartners(msg, bot);
 		return true
-	}
-)
+	})
 
+/*
 const unsubsOnPartner = new Input(
 	"/unsubs_on_partner",
-	"Отписаться от курсов компании",
-	async msg => msg.text.split(' ')[0] == '/unsubs_on_partner',
-	async (msg, bot) => {
+	msg => "Отписаться от курсов компании",
+	msg => msg.text.split(' ')[0] == '/unsubs_on_partner',
+	async (msg, bot, sess) => {
 		// ты
-	}
-)
+	})
+*/
 
 const selectPartner = new Input(
 	"selectPartner",
-	"название компании",
+	msg => "название компании",
 	msg => true,
-	async (msg, bot) => {
+	async (msg, bot, sess) => {
 		const user = await findUserByUid(msg.from.id);
 		const partner = await Partner.findOne({ companyName: msg.text });
 
 		if(!partner)
 		{
-			bot.sendMessage(msg.from.id, "Компания не найдена!");
-      showAllPartners(msg, bot)
+			await bot.sendMessage(msg.from.id, "Компания не найдена!");
+			await showAllPartners(msg, bot)
 			return false;
 		}
 
-		const courses = await getCourses(partner);
-
-		bot.sendMessage(msg.chat.id, "Выберите курс:\n" + courses.map(c => "      " + c.courseName).join("\n"), await courseButtons(msg, courses));
-
+		await showAllCourses(msg, bot, partner);
+		sess.lastPartner = partner;
 		return true;
-  }
-)
+	})
 
 const selectCourse = new Input(
 	"selectCourse",
-	"название курса",
-	async msg =>
-	{
-		const user = await findUserByUid(msg.from.id);
-		return isSlave(user);
-	},
-	async (msg, bot) => {
+	msg => "название курса",
+	msg => true,
+	async (msg, bot, sess) => {
 		const course = await Course.findOne({ courseName: msg.text });
 
 		if(!course)
 		{
-			bot.sendMessage(msg.from.id, "Курс не найден!");
+			await bot.sendMessage(msg.from.id, "Курс не найден!");
+			await showAllCourses(msg, bot, sess.lastPartner);
 			return false;
 		}
 
-		bot.sendMessage(msg.from.id, "курс: " + msg.text);
+		await bot.sendMessage(msg.from.id, "Курс: " + course.courseName + "\n\n" + course.courseDesc);
 		return true;
+	});
+
+const startCourse = new Input(
+	"/startcourse",
+	msg => "/startcourse",
+	msg => msg.text === "/startcourse",
+	async (msg, bot, sess) => {
+		
 	});
 
 function isSlave(user)
 {
-  if (!user) return false
 	return user.role === "slave";
 }
 
 function isAdmin(user)
 {
-  if (!user) return false
 	return user.role === "admin";
 }
 
 function isMaster(user)
 {
-  if (!user) return false
 	return user.role === "master";
 }
 
@@ -246,21 +239,29 @@ async function getCourses(partner)
 	return Promise.all(coursePromises);
 }
 
-
 async function showAllPartners(msg, bot) {
   const user = await findUserByUid(msg.from.id)
   const partners = await Partner.find(); // ?!?!?!?!!?!?
   const buttons = await partnerButtons(msg, partners);
 
-  bot.sendMessage(msg.from.id, "Выберите компанию:\n" + partners.map(p => "      " + p.companyName).join("\n"), buttons);
+  await bot.sendMessage(msg.from.id, partners.map(p => ":    " + p.companyName).join("\n"), buttons);
+}
+
+async function showAllCourses(msg, bot, partner)
+{
+	const courses = await getCourses(partner);
+
+	await bot.sendMessage(msg.chat.id, courses.map(c => ":    " + c.courseName).join("\n"), await courseButtons(msg, courses));
+
 }
 
 module.exports = {
-  start,
+  menu,
   selectPartner,
   selectCourse,
 	deleteUser,
 	changeUserRole,
 	addNewPartner,
-	subsOnPartner
+	subsOnPartner,
+	startCourse
 }

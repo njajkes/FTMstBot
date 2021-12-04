@@ -1,7 +1,7 @@
 module.exports = class Input {
-	constructor(id, name, condition, action) {
+	constructor(id, nameFunc, condition, action) {
 		this.id = id;
-		this.name = name;
+		this.nameFunc = nameFunc;
 		this.condition = condition;
 		this.action = action;
 	}

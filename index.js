@@ -52,20 +52,23 @@ inputTree.getValidInput = async (availableInputs, msg) =>
 mstBot.on("message", async msg => {
 	const session = getOrMakeSession(msg);
 
-	const lastCmd = session.lastCmd;
-
-	const availableInputs = inputTree.get(lastCmd);
+	let availableInputs = inputTree.get(session.lastCmd);
 	const validInput = await inputTree.getValidInput(availableInputs, msg);
 
-	if (!validInput) {
-		if (validInput !== undefined) {
-			mstBot.sendMessage(msg.from.id, "Что-то пошло не так!")
-		} else {
-		mstBot.sendMessage(msg.from.id, "Пожалуйста введите одно из: \n    " + availableInputs.map(i => i.name).join(", \n    "));
-		}
-	} else {
-		if (await validInput.action(msg, mstBot)) {
+	if (validInput)
+	{
+		if(await validInput.action(msg, mstBot, session))
+		{
 			session.lastCmd = validInput.id;
 		}
 	}
+	
+	mstBot.sendMessage(msg.from.id, "Пожалуйста введите одно из: \n    " + await availableNames(msg, inputTree.get(session.lastCmd)));
 });
+
+async function availableNames(msg, availableInputs)
+{
+	const availablePromises = availableInputs.map(i => i.nameFunc(msg));
+	let availableNames = await Promise.all(availablePromises);
+	return availableNames.filter(i => i).join(", \n    ");
+}

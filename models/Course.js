@@ -12,6 +12,10 @@ const courseScheme = Schema({
     required: true,
     unique: true
   },
+  courseDesc: {
+		type: String,
+		required: true
+  },
   units: [
     {
       type: Schema.Types.ObjectId,
