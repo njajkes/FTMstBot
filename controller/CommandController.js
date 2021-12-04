@@ -2,9 +2,11 @@ const User = require('../models/User')
 const Partner = require('../models/Partners')
 const Course = require('../models/Course')
 const Unit = require("../models/Unit");
+const UnitItem = require("../models/UnitItem");
+const Quiz = require("../models/Quiz");
 const Input = require('../models/Command')
 const { findUserByUid, findUserByUsername } = require('../controller/UserController')
-const { makeButtons } = require('../utils')
+const { makeButtons, later } = require('../utils')
 
 /*
 	Пример документации для команды:
@@ -221,8 +223,35 @@ const startUnit = new Input(
 			await showAllUnits(msg, bot, sess.lastCourse);
 			return false;
 		}
-		
-		await bot.sendMessage(msg.from.id, "bruh");
+
+		const uId = sess.lastCourse.units[+msg.text - 1];
+		const items = await getUnitItemsByUnitId(uId);
+
+		let maxTimeout = 0;
+
+		for(let item of items)
+		{
+			if(item.timeout > maxTimeout)
+			{
+				maxTimeout = item.timeout;
+			}
+			
+			setTimeout(() =>
+			{
+				if(item.contentType === "txt")
+				{
+					bot.sendMessage(msg.from.id, item.content);
+				}
+				else if(item.contentType === "img")
+				{
+					bot.sendPhoto(msg.from.id, item.content);
+				}
+			}, item.timeout);
+		}
+
+		console.log(maxTimeout);
+		await later(maxTimeout + 1000);
+
 		return true;
 	});
 
@@ -261,9 +290,14 @@ function getCourses(partner)
 	//return Promise.all(coursePromises);
 }
 
-async function getUnits(course)
+function getUnits(course)
 {
 	return Unit.find({ owner: course._id });
+}
+
+function getUnitItemsByUnitId(uId)
+{
+	return UnitItem.find({ itemOwner: uId });
 }
 
 async function showAllPartners(msg, bot) {

@@ -19,7 +19,14 @@ const unitScheme = Schema( {
       type: Schema.Types.ObjectId,
       ref: 'unitItems'
     }
-  ]
+  ],
+	quizzes:
+	[
+		{
+			type: Schema.Types.ObjectId,
+			ref: "quiz"
+		}
+	]
 } )
 
 module.exports = model('units', unitScheme)

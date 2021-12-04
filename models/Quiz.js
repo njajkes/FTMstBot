@@ -1,19 +1,13 @@
 const {Schema, model} = require('mongoose')
 
 const unitItemScheme = new Schema({
-  contentType: {
-    type: String,
-    required: true
-  },
   content: {
     type: String,
     required: true
   },
   answer: {
-	  type: String
-  },
-  timeout: {
-	type: Number
+	  type: String,
+	  required: true
   },
   itemOwner: {
     type: Schema.Types.ObjectId,
@@ -22,4 +16,4 @@ const unitItemScheme = new Schema({
   }
 })
 
-module.exports = model('unitItems', unitItemScheme)
+module.exports = model('quiz', unitItemScheme)

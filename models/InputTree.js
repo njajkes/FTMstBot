@@ -13,10 +13,10 @@ module.exports = function initInputTree() {
 	]);
 	map.set(Commands.deleteUser.id, [ Commands.menu, Commands.changeUserRole, Commands.deleteUser, Commands.addNewPartner ] );
 	map.set(Commands.changeUserRole.id, [ Commands.menu, Commands.deleteUser, Commands.changeUserRole, Commands.addNewPartner ]);
-	map.set(Commands.subsOnPartner.id, [ Commands.selectPartner ]) // ???
+	map.set(Commands.subsOnPartner.id, [ Commands.selectPartner ]);
 	map.set(Commands.selectPartner.id, [ Commands.selectCourse ]);
 	map.set(Commands.selectCourse.id, [ Commands.startCourse, Commands.menu ] )
-	map.set(Commands.startCourse.id, [ Commands.startUnit, Commands.menu ]);
+	map.set(Commands.startCourse.id, [ Commands.startUnit ]);
 	map.set(Commands.startUnit.id, [ Commands.menu ]);
 
 	return map;

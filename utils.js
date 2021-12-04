@@ -8,6 +8,15 @@ const makeButtons = names =>
 	};
 }
 
+const later = (delay) =>
+{
+	return new Promise(function(resolve)
+	{
+		setTimeout(resolve, delay);
+	});
+}
+
 module.exports = {
-	makeButtons
+	makeButtons,
+	later
 }
