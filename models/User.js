@@ -10,12 +10,10 @@ const userSceme = Schema({
       ref: 'partners'
     }
   ],
-  adminingPartners: [
-    {
+  adminingPartners: {
       type: Schema.Types.ObjectId,
       ref: 'partners'
-    }
-  ],
+    },
   courseList: [
     {
       type: Schema.Types.ObjectId,

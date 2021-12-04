@@ -1,19 +1,21 @@
 const {Schema, model} = require('mongoose')
 
 const courseScheme = Schema({
-  ownerName: {
+  owner: {
     type: Schema.Types.ObjectId,
     ref: 'partners',
-    required: true
+    required: true,
+    unique: true
   },
   courseName: {
     type: String,
-    required: true
+    required: true,
+    unique: true
   },
-  content: [
+  units: [
     {
       type: Schema.Types.ObjectId,
-      ref: 'contents'
+      ref: 'units'
     }
   ],
   subscribersList: [
@@ -22,8 +24,7 @@ const courseScheme = Schema({
       ref: 'users'
     }
   ],
-
-
+  visibility: Boolean
 })
 
 module.exports = model('courses', courseScheme)

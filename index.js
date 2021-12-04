@@ -42,7 +42,8 @@ inputTree.getValidInput = async (availableInputs, msg) =>
 		return undefined;
 	}
 	for (let input of availableInputs) {
-		if (await input.condition(msg)) {
+		let cond = await input.condition(msg)
+		if (cond) {
 			return input;
 		}
 	}
@@ -57,10 +58,10 @@ mstBot.on("message", async msg => {
 	const validInput = await inputTree.getValidInput(availableInputs, msg);
 
 	if (!validInput) {
-		if (validInput == undefined) {
+		if (validInput !== undefined) {
 			mstBot.sendMessage(msg.from.id, "Что-то пошло не так!")
 		} else {
-		mstBot.sendMessage(msg.from.id, "Пожалуйста введите одно из: " + availableInputs.map(i => i.name).join(", "));
+		mstBot.sendMessage(msg.from.id, "Пожалуйста введите одно из: \n    " + availableInputs.map(i => i.name).join(", \n    "));
 		}
 	} else {
 		if (await validInput.action(msg, mstBot)) {

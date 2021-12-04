@@ -3,7 +3,8 @@ const {Schema, model} = require('mongoose')
 const partnerScheme = new Schema({
   companyName: {
     type: String,
-    required: true
+    required: true,
+    unique: true
   },
   coursesList: [
     {
