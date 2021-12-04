@@ -249,11 +249,38 @@ const startUnit = new Input(
 			}, item.timeout);
 		}
 
-		console.log(maxTimeout);
 		await later(maxTimeout + 1000);
+		
+		sess.pendingQuizzes = (await getQuizzesByUnitId(uId)).slice(0); // shallow copy
+		
+		await showQuiz(msg, bot, sess.pendingQuizzes);
 
 		return true;
 	});
+
+const answerQuiz = new Input(
+	"answerQuiz",
+	msg => "ответ на вопрос",
+	msg => true,
+	async (msg, bot, sess) => {
+		const quiz = sess.pendingQuizzes.shift();
+
+		await bot.sendMessage(msg.from.id, msg.text === quiz.answer ? "Верно!" : "Неверно!");
+		
+		if(sess.pendingQuizzes.length > 0)
+		{
+			await showQuiz(msg, bot, sess.pendingQuizzes);
+		}
+
+		return true;
+	});
+
+async function showQuiz(msg, bot, pendingQuizzes)
+{
+	const quiz = pendingQuizzes[0];
+	
+	await bot.sendMessage(msg.from.id, quiz.content);
+}
 
 function isSlave(user)
 {
@@ -300,6 +327,11 @@ function getUnitItemsByUnitId(uId)
 	return UnitItem.find({ itemOwner: uId });
 }
 
+function getQuizzesByUnitId(uId)
+{
+	return Quiz.find({ itemOwner: uId });
+}
+
 async function showAllPartners(msg, bot) {
   const user = await findUserByUid(msg.from.id)
   const partners = await Partner.find();
@@ -323,13 +355,14 @@ async function showAllUnits(msg, bot, course)
 }
 
 module.exports = {
-  menu,
-  selectPartner,
-  selectCourse,
+	menu,
+	selectPartner,
+	selectCourse,
 	deleteUser,
 	changeUserRole,
 	addNewPartner,
 	subsOnPartner,
 	startCourse,
-	startUnit
+	startUnit,
+	answerQuiz
 }
