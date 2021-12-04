@@ -35,14 +35,14 @@ function getOrMakeSession(msg)
 
 const inputTree = initInputTree();
 
-inputTree.getValidInput = async (availableInputs, msg) =>
+inputTree.getValidInput = async (availableInputs, msg, session) =>
 {
 	if (!availableInputs) {
 		mstBot.sendMessage(msg.chat.id, "Whoops!")
 		return undefined;
 	}
 	for (let input of availableInputs) {
-		let cond = await input.condition(msg)
+		let cond = await input.condition(msg, session)
 		if (cond) {
 			return input;
 		}
@@ -53,22 +53,19 @@ mstBot.on("message", async msg => {
 	const session = getOrMakeSession(msg);
 
 	let availableInputs = inputTree.get(session.lastCmd);
-	const validInput = await inputTree.getValidInput(availableInputs, msg);
+	const validInput = await inputTree.getValidInput(availableInputs, msg, session);
 
-	if (validInput)
+	if(validInput && await validInput.action(msg, mstBot, session))
 	{
-		if(await validInput.action(msg, mstBot, session))
-		{
-			session.lastCmd = validInput.id;
-		}
+		session.lastCmd = validInput.id;
 	}
-	
-	mstBot.sendMessage(msg.from.id, "Пожалуйста введите одно из: \n    " + await availableNames(msg, inputTree.get(session.lastCmd)));
+
+	mstBot.sendMessage(msg.from.id, "Пожалуйста введите одно из: \n    " + await availableNames(msg, inputTree.get(session.lastCmd), session));
 });
 
-async function availableNames(msg, availableInputs)
+async function availableNames(msg, availableInputs, session)
 {
-	const availablePromises = availableInputs.map(i => i.nameFunc(msg));
+	const availablePromises = availableInputs.map(i => i.nameFunc(msg, session));
 	let availableNames = await Promise.all(availablePromises);
-	return availableNames.filter(i => i).join(", \n    ");
+	return availableNames.filter(i => i).join("\n    ");
 }

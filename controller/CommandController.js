@@ -1,9 +1,10 @@
 const User = require('../models/User')
 const Partner = require('../models/Partners')
 const Course = require('../models/Course')
+const Unit = require("../models/Unit");
 const Input = require('../models/Command')
 const { findUserByUid, findUserByUsername } = require('../controller/UserController')
-const { partnerButtons, courseButtons } = require('../utils')
+const { makeButtons } = require('../utils')
 
 /*
 	Пример документации для команды:
@@ -196,6 +197,7 @@ const selectCourse = new Input(
 		}
 
 		await bot.sendMessage(msg.from.id, "Курс: " + course.courseName + "\n\n" + course.courseDesc);
+		sess.lastCourse = course;
 		return true;
 	});
 
@@ -204,7 +206,24 @@ const startCourse = new Input(
 	msg => "/startcourse",
 	msg => msg.text === "/startcourse",
 	async (msg, bot, sess) => {
+		await showAllUnits(msg, bot, sess.lastCourse);
+		return true;
+	});
+
+const startUnit = new Input(
+	"startUnit",
+	msg => "номер модуля",
+	msg => true,
+	async (msg, bot, sess) => {
+		if(isNaN(msg.text) || +msg.text < 1 || +msg.text > sess.lastCourse.units.length)
+		{
+			await bot.sendMessage(msg.from.id, "Модуль не найден!");
+			await showAllUnits(msg, bot, sess.lastCourse);
+			return false;
+		}
 		
+		await bot.sendMessage(msg.from.id, "bruh");
+		return true;
 	});
 
 function isSlave(user)
@@ -227,32 +246,46 @@ function getUser(msg)
 	return User.findOne({ uid: msg.from.id });
 }
 
+/*
 async function getPartners(user)
 {
-	const partnerPromises = await user.partners.map(async pId => await Partner.findOne(pId));
-	return Promise.all(partnerPromises);
+	//const partnerPromises = await user.partners.map(async pId => await Partner.findOne(pId));
+	//return Promise.all(partnerPromises);
+}
+*/
+
+function getCourses(partner)
+{
+	return Course.find({ owner: partner._id });
+	//const coursePromises = await partner.coursesList.map(async cId => await Course.findOne(cId));
+	//return Promise.all(coursePromises);
 }
 
-async function getCourses(partner)
+async function getUnits(course)
 {
-	const coursePromises = await partner.coursesList.map(async cId => await Course.findOne(cId));
-	return Promise.all(coursePromises);
+	return Unit.find({ owner: course._id });
 }
 
 async function showAllPartners(msg, bot) {
   const user = await findUserByUid(msg.from.id)
-  const partners = await Partner.find(); // ?!?!?!?!!?!?
-  const buttons = await partnerButtons(msg, partners);
+  const partners = await Partner.find();
 
-  await bot.sendMessage(msg.from.id, partners.map(p => ":    " + p.companyName).join("\n"), buttons);
+  await bot.sendMessage(msg.from.id, partners.map(p => ":    " + p.companyName).join("\n"), await makeButtons(partners.map(p => p.companyName)));
 }
 
 async function showAllCourses(msg, bot, partner)
 {
 	const courses = await getCourses(partner);
 
-	await bot.sendMessage(msg.chat.id, courses.map(c => ":    " + c.courseName).join("\n"), await courseButtons(msg, courses));
+	await bot.sendMessage(msg.chat.id, courses.map(c => ":    " + c.courseName).join("\n"), await makeButtons(courses.map(c => c.courseName)));
 
+}
+
+async function showAllUnits(msg, bot, course)
+{
+	const units = await getUnits(course);
+	
+	await bot.sendMessage(msg.chat.id, units.map(u => ":    " + u.unitName).join("\n"), await makeButtons(units.map(u => u.unitName)));
 }
 
 module.exports = {
@@ -263,5 +296,6 @@ module.exports = {
 	changeUserRole,
 	addNewPartner,
 	subsOnPartner,
-	startCourse
+	startCourse,
+	startUnit
 }

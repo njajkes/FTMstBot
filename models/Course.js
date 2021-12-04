@@ -4,8 +4,7 @@ const courseScheme = Schema({
   owner: {
     type: Schema.Types.ObjectId,
     ref: 'partners',
-    required: true,
-    unique: true
+    required: true
   },
   courseName: {
     type: String,

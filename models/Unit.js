@@ -1,13 +1,18 @@
 const {Schema, model} = require('mongoose')
 
 const unitScheme = Schema( {
-  courseName: {
-    type: String,
-    require: true
+  course: {
+    type: Schema.Types.ObjectId,
+	ref: "courses",
+    required: true
   },
-  forWhom: {
+  unitName: {
+	type: String,
+	required: true
+  },
+  level: {
     type: String,
-    require: true
+    required: true
   },
   unitItems: [
     {

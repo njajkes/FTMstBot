@@ -16,6 +16,8 @@ module.exports = function initInputTree() {
 	map.set(Commands.subsOnPartner.id, [ Commands.selectPartner ]) // ???
 	map.set(Commands.selectPartner.id, [ Commands.selectCourse ]);
 	map.set(Commands.selectCourse.id, [ Commands.startCourse, Commands.menu ] )
+	map.set(Commands.startCourse.id, [ Commands.startUnit, Commands.menu ]);
+	map.set(Commands.startUnit.id, [ Commands.menu ]);
 
 	return map;
 }
