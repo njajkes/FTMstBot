@@ -1,6 +1,6 @@
 const {Schema, model} = require('mongoose')
 
-const quizScheme = new Schema(
+const quizSchema = new Schema(
 {
 	content:
 	{
@@ -20,4 +20,4 @@ const quizScheme = new Schema(
 	}
 });
 
-module.exports = model('quiz', quizScheme);
+module.exports = model('coursequiz', quizSchema);

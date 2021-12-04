@@ -1,4 +1,5 @@
-const Commands = require('../controller/CommandController')
+const Commands = require('../controller/CommandController');
+const { findUserByUid } = require('../controller/UserController');
 
 module.exports = function initInputTree() {
 	const map = new Map();
@@ -16,7 +17,7 @@ module.exports = function initInputTree() {
 	map.set(Commands.subsOnPartner.id, (msg, sess) => [ Commands.selectPartner ]);
 	map.set(Commands.selectPartner.id, (msg, sess) => [ Commands.selectCourse ]);
 	map.set(Commands.selectCourse.id, (msg, sess) => [ Commands.startCourse, Commands.menu ] )
-	map.set(Commands.startCourse.id, (msg, sess) => [ Commands.startUnit ]);
+	map.set(Commands.startCourse.id, (msg, sess) => sess.doingIntro ? [ Commands.answerQuiz ] : [ Commands.startUnit ]);
 	map.set(Commands.startUnit.id, (msg, sess) => sess.pendingQuizzes.length > 0 ? [ Commands.answerQuiz ] : [ Commands.menu ]);
 	map.set(Commands.answerQuiz.id, (msg, sess) => sess.pendingQuizzes.length > 0 ? [ Commands.answerQuiz ] : [ Commands.menu ]);
 

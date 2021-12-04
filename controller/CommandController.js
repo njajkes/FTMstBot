@@ -4,6 +4,8 @@ const Course = require('../models/Course')
 const Unit = require("../models/Unit");
 const UnitItem = require("../models/UnitItem");
 const Quiz = require("../models/Quiz");
+const CourseQuiz = require("../models/CourseQuiz");
+const UserCourseInfo = require("../models/UserCourseInfo");
 const Input = require('../models/Command')
 const { findUserByUid, findUserByUsername } = require('../controller/UserController')
 const { makeButtons, later } = require('../utils')
@@ -208,7 +210,27 @@ const startCourse = new Input(
 	msg => "/startcourse",
 	msg => msg.text === "/startcourse",
 	async (msg, bot, sess) => {
-		await showAllUnits(msg, bot, sess.lastCourse);
+		const user = await findUserByUid(msg.from.id);
+		let ucinfo = await UserCourseInfo.findOne({ user: user._id, course: sess.lastCourse._id });
+
+		if(!ucinfo)
+		{
+			ucinfo = new UserCourseInfo({ user: user._id, course: sess.lastCourse._id });
+			ucinfo.save();
+		}
+
+		if(ucinfo.finishedIntro)
+		{
+			await showAllUnits(msg, bot, sess.lastCourse);
+		}
+		else
+		{
+			sess.doingIntro = true;
+			sess.pendingQuizzes = (await getIntroQuizzes(sess.lastCourse)).slice(0); // shallow copy
+			sess.introAnswered = 0;
+			await showQuiz(msg, bot, sess.pendingQuizzes);
+		}
+
 		return true;
 	});
 
@@ -265,11 +287,28 @@ const answerQuiz = new Input(
 	async (msg, bot, sess) => {
 		const quiz = sess.pendingQuizzes.shift();
 
-		await bot.sendMessage(msg.from.id, msg.text === quiz.answer ? "Верно!" : "Неверно!");
-		
+		const correct = msg.text === quiz.answer;
+		await bot.sendMessage(msg.from.id, correct ? "Верно!" : "Неверно!");
+
+		const user = await findUserByUid(msg.from.id);
+		let ucinfo = await UserCourseInfo.findOne({ user: user._id, course: sess.lastCourse._id });
+
+		if(sess.doingIntro)
+		{
+			ucinfo.introCorrect[sess.introAnswered++] = correct;
+			await ucinfo.save();
+		}
+
 		if(sess.pendingQuizzes.length > 0)
 		{
 			await showQuiz(msg, bot, sess.pendingQuizzes);
+		}
+		else if(sess.doingIntro)
+		{
+			sess.doingIntro = false;
+
+			ucinfo.finishedIntro = true;
+			await ucinfo.save();
 		}
 
 		return true;
@@ -319,7 +358,7 @@ function getCourses(partner)
 
 function getUnits(course)
 {
-	return Unit.find({ owner: course._id });
+	return Unit.find({ course: course._id });
 }
 
 function getUnitItemsByUnitId(uId)
@@ -332,11 +371,18 @@ function getQuizzesByUnitId(uId)
 	return Quiz.find({ itemOwner: uId });
 }
 
-async function showAllPartners(msg, bot) {
-  const user = await findUserByUid(msg.from.id)
-  const partners = await Partner.find();
+function getIntroQuizzes(course)
+{
+	const promises = course.introQuizzes.map(qId => CourseQuiz.findById(qId));
+	return Promise.all(promises);
+}
 
-  await bot.sendMessage(msg.from.id, partners.map(p => ":    " + p.companyName).join("\n"), await makeButtons(partners.map(p => p.companyName)));
+async function showAllPartners(msg, bot)
+{
+	const user = await findUserByUid(msg.from.id)
+	const partners = await Partner.find();
+
+	await bot.sendMessage(msg.from.id, partners.map(p => ":    " + p.companyName).join("\n"), await makeButtons(partners.map(p => p.companyName)));
 }
 
 async function showAllCourses(msg, bot, partner)
