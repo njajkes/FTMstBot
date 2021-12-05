@@ -9,6 +9,7 @@
   "author": "TeamFrezer",
   "license": "ISC",
   "dependencies": {
+    "check-password-strength": "^2.0.3",
     "dotenv": "^10.0.0",
     "mongoose": "^6.0.14",
     "node-telegram-bot-api": "^0.54.0"

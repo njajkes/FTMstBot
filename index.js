@@ -53,8 +53,6 @@ mstBot.on("message", async msg => {
 	const session = getOrMakeSession(msg);
 	if (!msg.text) {
 		mstBot.sendMessage(msg.from.id, 'Пожалуйста, вводите только текстовые команды.\nНаш бот пока что не научился понимать что-то помимо него :(');
-		console.log(321)
-		console.log(session)
 		return
 	}
 	let availableInputs = inputTree.get(session.lastCmd)(msg, session);

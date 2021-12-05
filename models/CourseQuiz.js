@@ -22,6 +22,16 @@ const quizSchema = new Schema(
 	{
 		type: String,
 		required: true
+	},
+	special:
+	{
+		type: Boolean,
+		default: false
+	},
+	weight:
+	{
+		type: Number,
+		default: 1
 	}
 });
 

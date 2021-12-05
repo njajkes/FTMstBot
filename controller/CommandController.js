@@ -9,6 +9,7 @@ const UserCourseInfo = require("../models/UserCourseInfo");
 const Input = require('../models/Command')
 const { findUserByUid, findUserByUsername } = require('../controller/UserController')
 const { makeButtons, later } = require('../utils')
+const { passwordStrength } = require("check-password-strength");
 
 /*
 	Пример документации для команды:
@@ -32,6 +33,11 @@ const documentationMap = new Map()
 	documentationMap.set('/__delete__user', `\n\n/__delete__user [никнейм], где\n\n[никнейм] - никнейм пользователя без собачки (@), которого вы хотите удалить\n`)
 }
 
+const specialQuizMap = new Map()
+{
+	specialQuizMap.set("gradePassword", gradePassword);
+}
+
 const menu = new Input(
 	"/menu",
 	msg => "/menu - выйти в меню",
@@ -42,7 +48,6 @@ const menu = new Input(
 		{
 			user = new User({ uid: msg.from.id, role: "slave", username: msg.from.username });
 			await user.save();
-			await showAllPartners(msg, bot)
 		}
 		bot.sendMessage(msg.chat.id, `Здравствуйте, ${msg.from.first_name}! Добро пожаловать на ...`,  {
 			reply_markup: {
@@ -283,8 +288,10 @@ const startUnit = new Input(
 	"startUnit",
 	msg => "номер модуля",
 	msg => true,
-	async (msg, bot, sess) => {
+	async (msg, bot, sess) =>
+	{
 		const unitNum = msg.text.split('-')[0]
+
 		const user = await User.findOne({uid: msg.from.id})
 		const ucInfo = await UserCourseInfo.findOne({user: user._id, course: sess.lastCourse._id})
 		const userUnfinishedUnits = await getUserUnfinishedUnits(sess.lastCourse, msg.from.id)
@@ -341,8 +348,15 @@ const answerQuiz = new Input(
 	async (msg, bot, sess) => {
 		const quiz = sess.pendingQuizzes.shift();
 
-		const correct = msg.text.split('.')[0] === quiz.answer;
-		await bot.sendMessage(msg.from.id, correct ? "Верно!" : `Неверно!\nПравильный ответ: ${quiz.answer}`);
+		let quizFunc = gradeQuiz;
+		
+		if(quiz.special)
+		{
+			quizFunc = specialQuizMap.get(quiz.answer);
+		}
+		
+		const correct = await quizFunc(msg, bot, sess, quiz);
+		
 
 		const user = await findUserByUid(msg.from.id);
 		let ucinfo = await UserCourseInfo.findOne({ user: user._id, course: sess.lastCourse._id });
@@ -355,8 +369,6 @@ const answerQuiz = new Input(
 					console.log("Hmmm...")
 				} else {
 					for (let k of units) {
-						console.log(k)
-						console.log(units)
 						if (!ucinfo.finishedUnits.includes(k)) {
 							ucinfo.finishedUnits.push(k._id)
 							break
@@ -386,13 +398,26 @@ const answerQuiz = new Input(
 				sess.lastCourse.finishedOutro = true
 				await ucinfo.save()
 
-				await bot.sendMessage(msg.chat.id, `Что же, подведем итоги\nНа начальном тестировании вы ответили правильно на ${ucinfo.introCorrect.filter(e => e).length} вопроса\nНа финальном тестировании вы ответили правильно на ${ucinfo.outroCorrect.filter(e => e).length} вопроса`)
-				if (ucinfo.introCorrect.filter(e => e).length < ucinfo.outroCorrect.filter(e => e).length) {
-					await bot.sendMessage(msg.chat.id, `Я считаю, что мы неплохо потрудились, изучая новое, и хорошо закрепили материал! :)`)
-				} else if (ucinfo.introCorrect.filter(e => e).length == ucinfo.outroCorrect.filter(e => e).length) {
-					await bot.sendMessage(msg.chat.id, `Стабильность - признак мастерства, верно? :)`)
-				} else {
-					await bot.sendMessage(msg.chat.id, `Как же так? :(\nВы точно проходили все наши квизы?..`)
+				await bot.sendMessage(msg.chat.id, `Что же, подведем итоги\nНа начальном тестировании вы ответили правильно на ${ucinfo.introCorrect.filter(e => e).length} вопроса\nНа финальном тестировании вы ответили правильно на ${ucinfo.outroCorrect.filter(e => e).length} вопроса`, { reply_markup: { remove_keyboard: true } })
+
+				const introScore = await getIntroScore(user, sess.lastCourse, ucinfo);
+				const outroScore = await getOutroScore(user, sess.lastCourse, ucinfo);
+				const diff = outroScore - introScore;
+				
+				console.log(diff + ", " + introScore + ", " + outroScore);
+
+				if(diff < 0)
+				{
+					await bot.sendMessage(msg.chat.id, `Как же так? :(\nВы точно проходили все наши квизы?..`);
+					
+				}
+				else if(diff > 0)
+				{
+					await bot.sendMessage(msg.chat.id, `Стабильность - признак мастерства, верно? :)`);
+				}
+				else
+				{
+					await bot.sendMessage(msg.chat.id, `Я считаю, что мы неплохо потрудились, изучая новое, и хорошо закрепили материал! :)`);
 				}
 				return true
 			}
@@ -410,9 +435,44 @@ const answerQuiz = new Input(
 		return true;
 	});
 
+async function gradeQuiz(msg, bot, sess, quiz)
+{
+	const correct = msg.text.split('.')[0] === quiz.answer;
+	await bot.sendMessage(msg.from.id, correct ? "Верно!" : `Неверно!\nПравильный ответ: ${quiz.answer}`);
+	return correct;
+}
+
+async function gradePassword(msg, bot, sess, quiz)
+{
+	const strength = passwordStrength(msg.text).value;
+
+	if(strength === "Too weak")
+	{
+		await bot.sendMessage(msg.from.id, "Ваш пароль слишком слабый!");
+		return false;
+	}
+	else if(strength === "Weak")
+	{
+		await bot.sendMessage(msg.from.id, "Ваш пароль довольно слабый :(");
+		return false;
+	}
+	else if(strength === "Medium")
+	{
+		await bot.sendMessage(msg.from.id, "Ваш пароль средний, но мог бы быть сильнее");
+		return true;
+	}
+
+	await bot.sendMessage(msg.from.id, "Ваш пароль сильный! :)");
+	return true;
+}
+
 const courseIncreaseAvg = new Input(
 	'/course_avg_increase',
-	msg => "/course_avg_increase",
+	async msg =>
+	{
+		const user = await findUserByUid(msg.from.id);
+		return isAdmin(user) ? "/course_avg_increase" : undefined;
+	},
 	async msg => {
 		const user = await findUserByUid(msg.from.id)
 		return user.role == 'admin' && msg.text.split(' ')[0] == '/course_avg_increase'
@@ -433,17 +493,28 @@ const courseIncreaseAvg = new Input(
 		}
 		const courseStat = await UserCourseInfo.find({course: course._id})
 		let result = 0
-		courseStat.forEach(async e => {
-			result += e.outroCorrect.filter(i => i).length - e.introCorrect.filter(i => i).length
-		})
-		bot.sendMessage(msg.chat.id, `Среднее изменение уровня знаний по курсу: ${result > 0 ? '+' : ''}${result / courseStat.length * 100}%`)
+		
+		for(let e of courseStat)
+		{
+			const introScore = await getIntroScore(user, course, e);
+			const outroScore = await getOutroScore(user, course, e);
+			const diff = outroScore - introScore;
+			
+			result += diff;
+		}
+
+		bot.sendMessage(msg.chat.id, `Среднее изменение уровня знаний по курсу: ${result > 0 ? '+' : ''}${result / courseStat.length}%`)
 		return false
 	}
 )
 
 const showCourseStats = new Input(
 	'/show_course_stats',
-	msg => "/show_course_stats",
+	async msg =>
+	{
+		const user = await findUserByUid(msg.from.id);
+		return isAdmin(user) ? "/show_course_stats" : undefined;
+	},
 	async msg => {
 		const user = await findUserByUid(msg.from.id)
 		return user.role == 'admin' && msg.text.split(' ')[0] == '/show_course_stats'
@@ -465,9 +536,13 @@ const showCourseStats = new Input(
 		const courseStat = await UserCourseInfo.find({course: course._id})
 		let string = `Юзернейм | Прошёл? | Сколько правильных в вводном | Сколько правильных в финальном | Изменение\n------------------------------------------`
 		for (e of courseStat) {
-			console.log(e)
-			const user = await User.findById(e.user)
-			string = [string, `${user.username} | ${e.finishedOutro} | ${e.introCorrect.filter(i => i).length / e.introCorrect.length * 100}% | ${e.outroCorrect.filter(i => i).length / e.outroCorrect.length * 100}% | ${(e.outroCorrect.filter(i => i).length / e.outroCorrect.length * 100)-(e.introCorrect.filter(i => i).length / e.introCorrect.length * 100)}%`].join('\n')
+			const user = await User.findById(e.user);
+			const course = await Course.findById(e.course);
+
+			const introScore = await getIntroScore(user, course, e);
+			const outroScore = await getOutroScore(user, course, e);
+
+			string = [string, `${user.username} | ${e.finishedOutro} | ${introScore}% | ${outroScore}% | ${outroScore - introScore}%`].join('\n')
 		}
 		bot.sendMessage(msg.chat.id, string)
 		return false
@@ -492,6 +567,13 @@ const showCourseNames = new Input (
 async function showQuiz(msg, bot, pendingQuizzes)
 {
 	const quiz = pendingQuizzes[0];
+
+	if(quiz.special)
+	{
+		await bot.sendMessage(msg.from.id, quiz.content);
+		return;
+	}
+
 	const quizAnswers = quiz.content.split('\n').slice(1).map(e => e.split('.')[0])
 	await bot.sendMessage(msg.from.id, quiz.content, {
 		reply_markup: {
@@ -499,6 +581,42 @@ async function showQuiz(msg, bot, pendingQuizzes)
 			resize_keyboard: true
 		}
 	});
+}
+
+async function getIntroScore(user, course, ucinfo)
+{
+	const introQuizzes = await getIntroQuizzes(course);
+
+	let introScore = 0;
+	let totalIntroScore = 0;
+
+	introQuizzes.forEach((q, i) =>
+	{
+		introScore += ucinfo.introCorrect[i] ? q.weight : 0;
+		totalIntroScore += q.weight;
+	});
+
+	introScore = introScore / totalIntroScore * 100;
+
+	return introScore;
+}
+
+async function getOutroScore(user, course, ucinfo)
+{
+	const outroQuizzes = await getOutroQuizzes(course);
+
+	let outroScore = 0;
+	let totalOutroScore = 0;
+
+	outroQuizzes.forEach((q, i) =>
+	{
+		outroScore += ucinfo.outroCorrect[i] ? q.weight : 0;
+		totalOutroScore += q.weight;
+	});
+
+	outroScore = outroScore / totalOutroScore * 100;
+
+	return outroScore;
 }
 
 function isSlave(user)
@@ -556,11 +674,13 @@ function getIntroQuizzes(course)
 	const promises = course.introQuizzes.map(qId => CourseQuiz.findById(qId));
 	return Promise.all(promises);
 }
+
 function getOutroQuizzes(course) 
 {
 	const promises = course.outroQuizzes.map(qId => CourseQuiz.findById(qId));
 	return Promise.all(promises)
 }
+
 async function showAllPartners(msg, bot)
 {
 	const user = await findUserByUid(msg.from.id)

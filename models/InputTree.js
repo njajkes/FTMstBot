@@ -23,17 +23,16 @@ module.exports = function initInputTree() {
 	map.set(Commands.startCourse.id, (msg, sess) => {
 		if (sess.finishedOutro) return [ Commands.menu ]
 		if (sess.doingIntro || sess.doingOutro) return [ Commands.answerQuiz ] 
-		else return [ Commands.menu, Commands.startUnit ]
+		return [ Commands.menu, Commands.startUnit ]
 	})
 	map.set(Commands.startUnit.id, (msg, sess) => sess.pendingQuizzes.length > 0 ? [ Commands.answerQuiz ] : [ Commands.menu ]);
 	map.set(Commands.answerQuiz.id, (msg, sess) => {
 		if (sess.pendingQuizzes.length > 0) { 
 			return [ Commands.answerQuiz ] 
-		} else if (sess.lastCourse.finishedOutro){
+		} else if (sess.lastCourse.finishedOutro) {
 			return [ Commands.menu ]
-		} else {
-			return [ Commands.menu, Commands.startUnit  ]
-			}
+		}
+		return [ Commands.menu, Commands.startUnit  ]
 	});
 	map.set(Commands.courseIncreaseAvg.id, (msg, sess) => [ Commands.menu ]);
 	map.set(Commands.showCourseStats.id, (msg, sess) => [ Commands.menu ]);
