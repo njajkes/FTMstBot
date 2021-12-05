@@ -216,8 +216,8 @@ const selectPartner = new Input(
 		sess.lastPartner = partner;
 		if(!partner.slavesList.includes(user._id)) {
 			sess.lastPartner.validationNeeds = true
-			bot.sendMessage(msg.chat.id, `К сожалению, вы пока не были добавлены в список пользователей, которые могут просмотривать курсы этой компании, либо ваш юзернейм изменился.\nПожалуйста, сообщите об этом людям из вашей компании, которые занимаются администрированием курсов.`, {reply_markup: {remove_keyboard: true}})
-			return false
+			bot.sendMessage(msg.chat.id, `Введите ключ, который вам сообщила ваша компания: `, {reply_markup: {remove_keyboard: true}})
+			return true
 		}
 		await showAllCourses(msg, bot, partner);
 		return true;
