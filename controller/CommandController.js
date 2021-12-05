@@ -49,7 +49,7 @@ const menu = new Input(
 			user = new User({ uid: msg.from.id, role: "slave", username: msg.from.username });
 			await user.save();
 		}
-		bot.sendMessage(msg.chat.id, `Здравствуйте, ${msg.from.first_name}! Добро пожаловать на ...`,  {
+		bot.sendMessage(msg.chat.id, `Здравствуйте, ${msg.from.first_name}! Добро пожаловать на нашу образовательную площадку @FTMstBot!`,  {
 			reply_markup: {
 				remove_keyboard: true
 			}
@@ -216,12 +216,25 @@ const selectPartner = new Input(
 		sess.lastPartner = partner;
 		if(!partner.slavesList.includes(user._id)) {
 			sess.lastPartner.validationNeeds = true
-			bot.sendMessage(msg.chat.id, `Введите ключ, который вам сообщила ваша компания: `, {reply_markup: {remove_keyboard: true}})
-			return true
+			bot.sendMessage(msg.chat.id, `К сожалению, вы пока не были добавлены в список пользователей, которые могут просмотривать курсы этой компании, либо ваш юзернейм изменился.\nПожалуйста, сообщите об этом людям из вашей компании, которые занимаются администрированием курсов.`, {reply_markup: {remove_keyboard: true}})
+			return false
 		}
 		await showAllCourses(msg, bot, partner);
 		return true;
 	})
+
+const addUserToParternsUserlist = new Input (
+	"/add_user_to_userlist",
+	msg => "/add_user_to_userlist",
+	async msg => {
+		const user = await findUserByUid(msg.from.id)
+		return user.role == 'admin' && msg.text.split(' ')[0] == '/add_user_to_userlist'
+	},
+	async (msg, bot, sess) => {
+		const [, userUid] = msg.text.slice(' ')[1]
+		
+	}
+)
 
 const selectCourse = new Input(
 	"selectCourse",
