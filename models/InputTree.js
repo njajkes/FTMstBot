@@ -11,7 +11,8 @@ module.exports = function initInputTree() {
 		Commands.changeUserRole,
 		Commands.addNewPartner,
 		Commands.subsOnPartner,
-		Commands.courseIncreaseAvg
+		Commands.courseIncreaseAvg,
+		Commands.showCourseStats
 	]);
 	map.set(Commands.deleteUser.id, (msg, sess) => [ Commands.menu, Commands.changeUserRole, Commands.deleteUser, Commands.addNewPartner ] );
 	map.set(Commands.changeUserRole.id, (msg, sess) => [ Commands.menu, Commands.deleteUser, Commands.changeUserRole, Commands.addNewPartner ]);
@@ -35,5 +36,6 @@ module.exports = function initInputTree() {
 			}
 	});
 	map.set(Commands.courseIncreaseAvg.id, (msg, sess) => [ Commands.menu ]);
+	map.set(Commands.showCourseStats.id, (msg, sess) => [ Commands.menu ]);
 	return map;
 }

@@ -272,7 +272,7 @@ const startCourse = new Input(
 			sess.pendingQuizzes = await getIntroQuizzes(sess.lastCourse)
 			sess.pendingQuizzes = sess.pendingQuizzes.slice(0); // shallow copy
 			sess.introAnswered = 0;
-			bot.sendMessage(msg.chat.id, "Давайте пройдём первоначальное тестирование, чтобы оценить ваши знания по этой теме! \:\)")
+			await bot.sendMessage(msg.chat.id, "Давайте пройдём первоначальное тестирование, чтобы оценить ваши знания по этой теме! \:\)")
 			await showQuiz(msg, bot, sess.pendingQuizzes);
 		}
 
@@ -287,9 +287,10 @@ const startUnit = new Input(
 		const unitNum = msg.text.split('-')[0]
 		const user = await User.findOne({uid: msg.from.id})
 		const ucInfo = await UserCourseInfo.findOne({user: user._id, course: sess.lastCourse._id})
-		const userFinishedUnits = await getUserFinishedUnits(sess.lastCourse, msg.from.id)
-		if (userFinishedUnits.length == sess.lastCourse.units.length) {
+		const userUnfinishedUnits = await getUserUnfinishedUnits(sess.lastCourse, msg.from.id)
+		if (userUnfinishedUnits.length == 0) {
 			await bot.sendMessage(msg.from.id, "Вы уже прошли данный курс!");
+			return false
 		}
 		if(isNaN(unitNum) || +unitNum < 1 || +unitNum > sess.lastCourse.units.length)
 		{
@@ -348,6 +349,21 @@ const answerQuiz = new Input(
 
 		if (sess.doingIntro) {
 			ucinfo.introCorrect[sess.introAnswered++] = correct;
+			if (correct) {
+				const units = await Unit.find({level: quiz.level, course: sess.lastCourse._id})
+				if (!units) {
+					console.log("Hmmm...")
+				} else {
+					for (let k of units) {
+						console.log(k)
+						console.log(units)
+						if (!ucinfo.finishedUnits.includes(k)) {
+							ucinfo.finishedUnits.push(k._id)
+							break
+						}
+					}
+				}
+			}
 			await ucinfo.save();
 		}
 		if (sess.doingOutro) {
@@ -451,10 +467,25 @@ const showCourseStats = new Input(
 		for (e of courseStat) {
 			console.log(e)
 			const user = await User.findById(e.user)
-			string = [string, `${user.username} | ${e.finishedOutro} | ${e.introCorrect.filter(i => i).length} | ${e.outroCorrect.filter(i => i).length} | ${e.outroCorrect.filter(i => i).length - e.introCorrect.filter(i => i).length}`].join('\n')
+			string = [string, `${user.username} | ${e.finishedOutro} | ${e.introCorrect.filter(i => i).length / e.introCorrect.length * 100}% | ${e.outroCorrect.filter(i => i).length / e.outroCorrect.length * 100}% | ${(e.outroCorrect.filter(i => i).length / e.outroCorrect.length * 100)-(e.introCorrect.filter(i => i).length / e.introCorrect.length * 100)}%`].join('\n')
 		}
 		bot.sendMessage(msg.chat.id, string)
-		return true
+		return false
+	}
+)
+
+const showCourseNames = new Input (
+	"/show_course_names",
+	msg => "/show_course_names",
+	async msg => {
+		const user = await findUserByUid(msg.from.id)
+		return user.role == 'admin' && msg.text.split(' ')[0] == '/show_course_stats'
+	},
+	async (msg, bot, sess) => {
+		const user = await findUserByUid(msg.from.id)
+		if (user.role != 'admin') return false
+		const partner = user.adminingPartners // ObjectId
+		const course = await Course.findOne({owner: partner})
 	}
 )
 
@@ -580,5 +611,6 @@ module.exports = {
 	startUnit,
 	answerQuiz,
 	partnerValidation,
-	courseIncreaseAvg
+	courseIncreaseAvg,
+	showCourseStats
 }

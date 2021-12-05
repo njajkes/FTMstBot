@@ -17,6 +17,11 @@ const quizSchema = new Schema(
 		type: Schema.Types.ObjectId,
 		ref: 'units',
 		required: true
+	},
+	level: 
+	{
+		type: String,
+		required: true
 	}
 });
 
