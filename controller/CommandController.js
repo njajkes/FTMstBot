@@ -287,8 +287,8 @@ const startUnit = new Input(
 		const unitNum = msg.text.split('-')[0]
 		const user = await User.findOne({uid: msg.from.id})
 		const ucInfo = await UserCourseInfo.findOne({user: user._id, course: sess.lastCourse._id})
-		const userUnfinishedUnits = await getUserUnfinishedUnits(sess.lastCourse, msg.from.id)
-		if (userUnfinishedUnits.length >= sess.lastCourse.units.length) {
+		const userFinishedUnits = await getUserFinishedUnits(sess.lastCourse, msg.from.id)
+		if (userFinishedUnits.length == sess.lastCourse.units.length) {
 			await bot.sendMessage(msg.from.id, "Вы уже прошли данный курс!");
 		}
 		if(isNaN(unitNum) || +unitNum < 1 || +unitNum > sess.lastCourse.units.length)
@@ -367,6 +367,7 @@ const answerQuiz = new Input(
 			if (sess.doingOutro) {
 				sess.doingOutro = false
 				ucinfo.finishedOutro = true
+				sess.lastCourse.finishedOutro = true
 				await ucinfo.save()
 
 				await bot.sendMessage(msg.chat.id, `Что же, подведем итоги\nНа начальном тестировании вы ответили правильно на ${ucinfo.introCorrect.filter(e => e).length} вопроса\nНа финальном тестировании вы ответили правильно на ${ucinfo.outroCorrect.filter(e => e).length} вопроса`)
