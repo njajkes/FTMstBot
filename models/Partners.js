@@ -23,7 +23,8 @@ const partnerScheme = new Schema({
       type: Schema.Types.ObjectId,
       ref: 'users'
     }
-  ]
+  ],
+  validationKey: String
 })
 
 module.exports = model('partners', partnerScheme)

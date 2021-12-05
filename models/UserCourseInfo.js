@@ -18,11 +18,32 @@ const infoScheme = Schema({
 		type: Boolean,
 		default: false
 	},
+	finishedOutro:
+	{
+		type: Boolean,
+		default: false
+	}
+	,
 	introCorrect:
 	[
 		{
 			type: Boolean,
 			default: false
+		}
+	],
+	outroCorrect:
+	[
+		{
+			type: Boolean,
+			default: false
+		}
+	]
+	,
+	finishedUnits:
+	[
+		{
+			type: Schema.Types.ObjectId,
+			ref: 'units'
 		}
 	]
 });

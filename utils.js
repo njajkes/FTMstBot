@@ -4,7 +4,7 @@ const Course = require('./models/Course')
 const makeButtons = names =>
 {
 	return {
-		reply_markup: { keyboard: names.map(n => [ n ]) }
+		reply_markup: { keyboard: names.map(n => [ n ]), resize_keyboard: true}
 	};
 }
 

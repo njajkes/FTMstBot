@@ -34,7 +34,7 @@ const documentationMap = new Map()
 
 const menu = new Input(
 	"/menu",
-	msg => "/menu",
+	msg => "/menu - выйти в меню",
 	msg => msg.text === "/menu",
 	async (msg, bot, sess) => {
 		let user = await findUserByUid(msg.from.id);
@@ -44,7 +44,11 @@ const menu = new Input(
 			await user.save();
 			await showAllPartners(msg, bot)
 		}
-		await bot.sendMessage(msg.chat.id, `Здравствуйте, ${msg.from.first_name}! Добро пожаловать на ...`); // TODO: дописать хуйню
+		bot.sendMessage(msg.chat.id, `Здравствуйте, ${msg.from.first_name}! Добро пожаловать на ...`,  {
+			reply_markup: {
+				remove_keyboard: true
+			}
+		}); // TODO: дописать хуйню
 		return true;
 	})
 
@@ -110,7 +114,6 @@ const changeUserRole = new Input(
 			} else {
 				user.adminingPartners = partner
 				if (!user.partners.includes(partner._id)) {
-					console.log(true)
 					user.partners.push(partner)
 				}
 			}
@@ -166,6 +169,30 @@ const unsubsOnPartner = new Input(
 	})
 */
 
+const partnerValidation = new Input(
+	"validation",
+	msg => "или введите ключ, который вам сообщила ваша компания",
+	msg => true,
+	async (msg, bot, sess) => {
+		const partner = sess.lastPartner
+		const user = await findUserByUid(msg.from.id)
+
+		if (msg.text == partner.validationKey) {
+			partner.slavesList.push(user._id)
+			user.partners.push(partner._id)
+			await partner.save()
+			await user.save()
+			
+			await showAllCourses(msg, bot, partner)
+			sess.lastPartner.validationNeeds = false
+			return true
+		} else {
+			await bot.sendMessage(msg.chat.id, "Неправильный ключ!")
+			return false
+		}
+	}
+)
+
 const selectPartner = new Input(
 	"selectPartner",
 	msg => "название компании",
@@ -180,9 +207,14 @@ const selectPartner = new Input(
 			await showAllPartners(msg, bot)
 			return false;
 		}
-
-		await showAllCourses(msg, bot, partner);
+		
 		sess.lastPartner = partner;
+		if(!partner.slavesList.includes(user._id)) {
+			sess.lastPartner.validationNeeds = true
+			bot.sendMessage(msg.chat.id, `Введите ключ, который вам сообщила ваша компания: `, {reply_markup: {remove_keyboard: true}})
+			return true
+		}
+		await showAllCourses(msg, bot, partner);
 		return true;
 	})
 
@@ -200,7 +232,11 @@ const selectCourse = new Input(
 			return false;
 		}
 
-		await bot.sendMessage(msg.from.id, "Курс: " + course.courseName + "\n\n" + course.courseDesc);
+		await bot.sendMessage(msg.from.id, "Курс: " + course.courseName + "\n\n" + course.courseDesc, {
+			reply_markup: {
+				remove_keyboard: true
+			}
+		});
 		sess.lastCourse = course;
 		return true;
 	});
@@ -218,16 +254,25 @@ const startCourse = new Input(
 			ucinfo = new UserCourseInfo({ user: user._id, course: sess.lastCourse._id });
 			ucinfo.save();
 		}
+		if(ucinfo.finishedOutro)
+		{
+			await bot.sendMessage(msg.chat.id, `Захотели снова пройти наш курс? :)\nНо ведь мы рассказали всё самое интересное, что в нём было!`);
+			await bot.sendMessage(msg.chat.id, `Напомню вашу статистику:`);
+			await bot.sendMessage(msg.chat.id, `На начальном тестировании вы ответили правильно на ${ucinfo.introCorrect.filter(e => e).length} вопроса\nНа финальном тестировании вы ответили правильно на ${ucinfo.outroCorrect.filter(e => e).length} вопроса`)
 
+			return false
+		}
 		if(ucinfo.finishedIntro)
 		{
-			await showAllUnits(msg, bot, sess.lastCourse);
+			await showUserUnfinishedUnits(msg, bot, sess.lastCourse);
 		}
 		else
 		{
 			sess.doingIntro = true;
-			sess.pendingQuizzes = (await getIntroQuizzes(sess.lastCourse)).slice(0); // shallow copy
+			sess.pendingQuizzes = await getIntroQuizzes(sess.lastCourse)
+			sess.pendingQuizzes = sess.pendingQuizzes.slice(0); // shallow copy
 			sess.introAnswered = 0;
+			bot.sendMessage(msg.chat.id, "Давайте пройдём первоначальное тестирование, чтобы оценить ваши знания по этой теме! \:\)")
 			await showQuiz(msg, bot, sess.pendingQuizzes);
 		}
 
@@ -239,14 +284,20 @@ const startUnit = new Input(
 	msg => "номер модуля",
 	msg => true,
 	async (msg, bot, sess) => {
-		if(isNaN(msg.text) || +msg.text < 1 || +msg.text > sess.lastCourse.units.length)
+		const unitNum = msg.text.split('-')[0]
+		const user = await User.findOne({uid: msg.from.id})
+		const ucInfo = await UserCourseInfo.findOne({user: user._id, course: sess.lastCourse._id})
+		const userUnfinishedUnits = await getUserUnfinishedUnits(sess.lastCourse, msg.from.id)
+		if (userUnfinishedUnits.length >= sess.lastCourse.units.length) {
+			await bot.sendMessage(msg.from.id, "Вы уже прошли данный курс!");
+		}
+		if(isNaN(unitNum) || +unitNum < 1 || +unitNum > sess.lastCourse.units.length)
 		{
 			await bot.sendMessage(msg.from.id, "Модуль не найден!");
-			await showAllUnits(msg, bot, sess.lastCourse);
+			await showUserUnfinishedUnits(msg, bot, sess.lastCourse);
 			return false;
 		}
-
-		const uId = sess.lastCourse.units[+msg.text - 1];
+		const uId = sess.lastCourse.units[+unitNum - 1];
 		const items = await getUnitItemsByUnitId(uId);
 
 		let maxTimeout = 0;
@@ -262,11 +313,11 @@ const startUnit = new Input(
 			{
 				if(item.contentType === "txt")
 				{
-					bot.sendMessage(msg.from.id, item.content);
+					bot.sendMessage(msg.from.id, item.content, {reply_markup: {remove_keyboard: true}} );
 				}
 				else if(item.contentType === "img")
 				{
-					bot.sendPhoto(msg.from.id, item.content);
+					bot.sendPhoto(msg.from.id, item.content, {reply_markup: {remove_keyboard: true}} );
 				}
 			}, item.timeout);
 		}
@@ -274,9 +325,11 @@ const startUnit = new Input(
 		await later(maxTimeout + 1000);
 		
 		sess.pendingQuizzes = (await getQuizzesByUnitId(uId)).slice(0); // shallow copy
-		
+		ucInfo.finishedUnits.push(uId)
+		ucInfo.save()
+		sess.lastCourse.finishedUnitsLength = ucInfo.finishedUnits.length
 		await showQuiz(msg, bot, sess.pendingQuizzes);
-
+	  
 		return true;
 	});
 
@@ -287,38 +340,133 @@ const answerQuiz = new Input(
 	async (msg, bot, sess) => {
 		const quiz = sess.pendingQuizzes.shift();
 
-		const correct = msg.text === quiz.answer;
-		await bot.sendMessage(msg.from.id, correct ? "Верно!" : "Неверно!");
+		const correct = msg.text.split('.')[0] === quiz.answer;
+		await bot.sendMessage(msg.from.id, correct ? "Верно!" : `Неверно!\nПравильный ответ: ${quiz.answer}`);
 
 		const user = await findUserByUid(msg.from.id);
 		let ucinfo = await UserCourseInfo.findOne({ user: user._id, course: sess.lastCourse._id });
 
-		if(sess.doingIntro)
-		{
+		if (sess.doingIntro) {
 			ucinfo.introCorrect[sess.introAnswered++] = correct;
 			await ucinfo.save();
 		}
-
-		if(sess.pendingQuizzes.length > 0)
-		{
-			await showQuiz(msg, bot, sess.pendingQuizzes);
+		if (sess.doingOutro) {
+			ucinfo.outroCorrect[sess.outroAnswered++] = correct;
+			await ucinfo.save()
 		}
-		else if(sess.doingIntro)
-		{
-			sess.doingIntro = false;
 
-			ucinfo.finishedIntro = true;
-			await ucinfo.save();
+		if (sess.pendingQuizzes.length > 0) {
+			await showQuiz(msg, bot, sess.pendingQuizzes);
+		} else {
+			if (sess.doingIntro) {
+				sess.doingIntro = false;
+
+				ucinfo.finishedIntro = true;
+				await ucinfo.save();
+			}
+			if (sess.doingOutro) {
+				sess.doingOutro = false
+				ucinfo.finishedOutro = true
+				await ucinfo.save()
+
+				await bot.sendMessage(msg.chat.id, `Что же, подведем итоги\nНа начальном тестировании вы ответили правильно на ${ucinfo.introCorrect.filter(e => e).length} вопроса\nНа финальном тестировании вы ответили правильно на ${ucinfo.outroCorrect.filter(e => e).length} вопроса`)
+				if (ucinfo.introCorrect.filter(e => e).length < ucinfo.outroCorrect.filter(e => e).length) {
+					await bot.sendMessage(msg.chat.id, `Я считаю, что мы неплохо потрудились, изучая новое, и хорошо закрепили материал! :)`)
+				} else if (ucinfo.introCorrect.filter(e => e).length == ucinfo.outroCorrect.filter(e => e).length) {
+					await bot.sendMessage(msg.chat.id, `Стабильность - признак мастерства, верно? :)`)
+				} else {
+					await bot.sendMessage(msg.chat.id, `Как же так? :(\nВы точно проходили все наши квизы?..`)
+				}
+				return true
+			}
+			if (sess.lastCourse.units.length != ucinfo.finishedUnits.length) {
+				await showUserUnfinishedUnits(msg, bot, sess.lastCourse)
+			} else {
+				sess.doingOutro = true;
+				sess.pendingQuizzes = (await getOutroQuizzes(sess.lastCourse)).slice(0); // shallow copy
+				sess.outroAnswered = 0;
+				await bot.sendMessage(msg.chat.id, "А теперь закрепим наши знания, пройдя финальное тестирование! \:\)")
+				await showQuiz(msg, bot, sess.pendingQuizzes);
+			}
 		}
 
 		return true;
 	});
 
+const courseIncreaseAvg = new Input(
+	'/course_avg_increase',
+	msg => "/course_avg_increase",
+	async msg => {
+		const user = await findUserByUid(msg.from.id)
+		return user.role == 'admin' && msg.text.split(' ')[0] == '/course_avg_increase'
+	}, 
+	async (msg, bot, sess) => {
+		const user = await findUserByUid(msg.from.id)
+		if (user.role != 'admin') return false
+		const [, courseName] = msg.text.split(' ')
+		if (!courseName) {
+			bot.sendMessage(msg.chat.id, "Неверный синтаксис")
+			return false
+		}
+		const partner = user.adminingPartners // ObjectId
+		const course = await Course.findOne({owner: partner, courseName: courseName})
+		if (!course) {
+			bot.sendMessage(msg.chat.id, "Курс не найден")
+			return false
+		}
+		const courseStat = await UserCourseInfo.find({course: course._id})
+		let result = 0
+		courseStat.forEach(async e => {
+			result += e.outroCorrect.filter(i => i).length - e.introCorrect.filter(i => i).length
+		})
+		bot.sendMessage(msg.chat.id, `Среднее изменение уровня знаний по курсу: ${result > 0 ? '+' : ''}${result / courseStat.length * 100}%`)
+		return false
+	}
+)
+
+const showCourseStats = new Input(
+	'/show_course_stats',
+	msg => "/show_course_stats",
+	async msg => {
+		const user = await findUserByUid(msg.from.id)
+		return user.role == 'admin' && msg.text.split(' ')[0] == '/show_course_stats'
+	}, 
+	async (msg, bot, sess) => {
+		const user = await findUserByUid(msg.from.id)
+		if (user.role != 'admin') return false
+		const [, courseName] = msg.text.split(' ')
+		if (!courseName) {
+			bot.sendMessage(msg.chat.id, "Неверный синтаксис")
+			return false
+		}
+		const partner = user.adminingPartners // ObjectId
+		const course = await Course.findOne({owner: partner, courseName: courseName})
+		if (!course) {
+			bot.sendMessage(msg.chat.id, "Курс не найден")
+			return false
+		}
+		const courseStat = await UserCourseInfo.find({course: course._id})
+		let string = `Юзернейм | Прошёл? | Сколько правильных в вводном | Сколько правильных в финальном | Изменение\n------------------------------------------`
+		for (e of courseStat) {
+			console.log(e)
+			const user = await User.findById(e.user)
+			string = [string, `${user.username} | ${e.finishedOutro} | ${e.introCorrect.filter(i => i).length} | ${e.outroCorrect.filter(i => i).length} | ${e.outroCorrect.filter(i => i).length - e.introCorrect.filter(i => i).length}`].join('\n')
+		}
+		bot.sendMessage(msg.chat.id, string)
+		return true
+	}
+)
+
 async function showQuiz(msg, bot, pendingQuizzes)
 {
 	const quiz = pendingQuizzes[0];
-	
-	await bot.sendMessage(msg.from.id, quiz.content);
+	const quizAnswers = quiz.content.split('\n').slice(1).map(e => e.split('.')[0])
+	await bot.sendMessage(msg.from.id, quiz.content, {
+		reply_markup: {
+			keyboard: [ [...quizAnswers] ],
+			resize_keyboard: true
+		}
+	});
 }
 
 function isSlave(user)
@@ -356,14 +504,14 @@ function getCourses(partner)
 	//return Promise.all(coursePromises);
 }
 
-function getUnits(course)
+async function getUnits(course)
 {
-	return Unit.find({ course: course._id });
+	return await Unit.find({ course: course._id });
 }
 
-function getUnitItemsByUnitId(uId)
+async function getUnitItemsByUnitId(uId)
 {
-	return UnitItem.find({ itemOwner: uId });
+	return await UnitItem.find({ itemOwner: uId });
 }
 
 function getQuizzesByUnitId(uId)
@@ -376,7 +524,11 @@ function getIntroQuizzes(course)
 	const promises = course.introQuizzes.map(qId => CourseQuiz.findById(qId));
 	return Promise.all(promises);
 }
-
+function getOutroQuizzes(course) 
+{
+	const promises = course.outroQuizzes.map(qId => CourseQuiz.findById(qId));
+	return Promise.all(promises)
+}
 async function showAllPartners(msg, bot)
 {
 	const user = await findUserByUid(msg.from.id)
@@ -400,6 +552,21 @@ async function showAllUnits(msg, bot, course)
 	await bot.sendMessage(msg.chat.id, units.map(u => ":    " + u.unitName).join("\n"), await makeButtons(units.map(u => u.unitName)));
 }
 
+async function getUserUnfinishedUnits(course, useruid) {
+	const allUnits = await getUnits(course);
+	const user = await findUserByUid(useruid)
+	const ucInfo = await UserCourseInfo.findOne({course: course._id, user: user._id})
+	const userUnfinishedUnits = allUnits.filter(e => ! ucInfo.finishedUnits.includes(e._id))
+	return userUnfinishedUnits
+}
+
+async function showUserUnfinishedUnits(msg, bot, course)
+{
+	const units = await getUserUnfinishedUnits(course, msg.from.id);
+	
+	await bot.sendMessage(msg.chat.id, units.map(u => ":    " + u.unitName).join("\n"), makeButtons(units.map(u => u.unitName)));
+}
+
 module.exports = {
 	menu,
 	selectPartner,
@@ -410,5 +577,7 @@ module.exports = {
 	subsOnPartner,
 	startCourse,
 	startUnit,
-	answerQuiz
+	answerQuiz,
+	partnerValidation,
+	courseIncreaseAvg
 }

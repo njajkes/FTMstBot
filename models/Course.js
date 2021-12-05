@@ -32,6 +32,13 @@ const courseScheme = Schema({
 			ref: 'coursequiz'
 		}
 	],
+	outroQuizzes:
+	[
+		{
+			type: Schema.Types.ObjectId,
+			ref: 'coursequiz'
+		}
+	],
 	subscribersList:
 	[
 		{
